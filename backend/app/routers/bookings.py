@@ -9,13 +9,14 @@ from app.models.ride import Ride
 from app.models.user import User
 from app.middleware.auth import get_current_user
 
-# Reusing RideResponse for simplicity or could create a specific BookingResponse
 from app.schemas.ride import RideResponse
+from fastapi import BackgroundTasks
+from app.routers.websocket_rt import notifier
 
 router = APIRouter()
 
 @router.post("/")
-def book_ride(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def book_ride(data: dict, background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     ride_id = data.get("ride_id")
     seats = data.get("seats_booked", data.get("seats", 1))
     
@@ -47,6 +48,13 @@ def book_ride(data: dict, current_user: User = Depends(get_current_user), db: Se
         
     db.commit()
     db.refresh(booking)
+    
+    # Trigger WebSocket notification to driver
+    background_tasks.add_task(notifier.send_personal_message, str(ride.driver_id), {
+        "type": "NEW_BOOKING",
+        "title": "New Booking Received!",
+        "message": f"{current_user.name} booked {seats} seat(s) on your ride."
+    })
     
     return {
         "id": str(booking.id),

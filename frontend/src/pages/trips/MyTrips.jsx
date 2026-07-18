@@ -36,7 +36,7 @@ import {
   Close
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import mockApi from '../../services/api';
+import { mockApi, getWsBaseUrl } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import MapView from '../../components/maps/MapView.jsx';
 
@@ -107,7 +107,7 @@ const MyTrips = () => {
     
     loadChatHistory();
 
-    const wsUrl = `ws://localhost:8000/ws/trip/${selectedTrip.id}`;
+    const wsUrl = `${getWsBaseUrl()}/ws/trip/${selectedTrip.id}`;
     ws.current = new WebSocket(wsUrl);
 
     ws.current.onmessage = (event) => {

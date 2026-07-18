@@ -29,16 +29,19 @@ import {
 } from '@mui/icons-material';
 import { useThemeMode } from '../../contexts/ThemeContext.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useNotifications } from '../../contexts/NotificationContext.jsx';
 
 const Topbar = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { mode, toggleTheme } = useThemeMode();
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, markAllAsRead } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   
   const [anchorEl, setAnchorEl] = useState(null);
+  const [notifAnchorEl, setNotifAnchorEl] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleMenu = (event) => {
@@ -169,11 +172,50 @@ const Topbar = () => {
               {mode === 'dark' ? <LightModeOutlined /> : <DarkModeOutlined />}
             </IconButton>
 
-            <IconButton color="inherit" size="medium">
-              <Badge badgeContent={1} color="error">
+            <IconButton 
+              color="inherit" 
+              size="medium"
+              onClick={(e) => {
+                setNotifAnchorEl(e.currentTarget);
+                markAllAsRead();
+              }}
+            >
+              <Badge badgeContent={unreadCount} color="error">
                 <NotificationsOutlined />
               </Badge>
             </IconButton>
+            
+            {/* Notifications Menu */}
+            <Menu
+              anchorEl={notifAnchorEl}
+              open={Boolean(notifAnchorEl)}
+              onClose={() => setNotifAnchorEl(null)}
+              PaperProps={{
+                sx: { mt: 1.5, minWidth: 300, maxWidth: 350, maxHeight: 400, borderRadius: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <Box sx={{ p: 2, pb: 1 }}>
+                <Typography variant="subtitle1" fontWeight={800}>Notifications</Typography>
+              </Box>
+              <Divider />
+              {notifications.length === 0 ? (
+                <MenuItem disabled>
+                  <Typography variant="body2">No recent notifications</Typography>
+                </MenuItem>
+              ) : (
+                notifications.map(n => (
+                  <MenuItem key={n.id} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1.5, whiteSpace: 'normal' }}>
+                    <Typography variant="subtitle2" fontWeight={700} color="primary">{n.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">{n.message}</Typography>
+                    <Typography variant="caption" color="text.disabled" sx={{ mt: 0.5 }}>
+                      {new Date(n.timestamp).toLocaleTimeString()}
+                    </Typography>
+                  </MenuItem>
+                ))
+              )}
+            </Menu>
 
             <Box
               onClick={handleMenu}

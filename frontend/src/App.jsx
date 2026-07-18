@@ -4,6 +4,9 @@ import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 // Layout Components
 import MainLayout from './components/layout/MainLayout.jsx';
 
+// Core Contexts
+import { NotificationProvider } from './contexts/NotificationContext.jsx';
+
 // Auth Pages
 import SplashScreen from './pages/auth/SplashScreen.jsx';
 import LoginPage from './pages/auth/LoginPage.jsx';
@@ -50,7 +53,11 @@ const App = () => {
 
       {/* Authenticated Dashboard Core Flow */}
       <Route element={<ProtectedRoute />}>
-        <Route element={<MainLayout />}>
+        <Route element={
+          <NotificationProvider>
+            <MainLayout />
+          </NotificationProvider>
+        }>
           <Route path="/carpooling" element={<Carpooling />} />
           <Route path="/my-trips" element={<MyTrips />} />
           <Route path="/vehicles" element={<Vehicles />} />

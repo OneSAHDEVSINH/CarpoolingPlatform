@@ -3,6 +3,16 @@ import axios from 'axios';
 // Centralized configuration: 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
+export const getWsBaseUrl = () => {
+  try {
+    const url = new URL(API_BASE_URL);
+    const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${url.host}`;
+  } catch (e) {
+    return 'ws://127.0.0.1:8000';
+  }
+};
+
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: {

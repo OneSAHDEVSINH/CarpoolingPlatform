@@ -13,6 +13,8 @@ from app.models.chat import ChatMessage
 from app.middleware.auth import get_current_user
 from app.schemas.trip import TripResponse, LocationUpdate, ChatMessageCreate, ChatMessageResponse, PassengerInfo
 from app.schemas.ride import DriverInfo, VehicleBrief
+from fastapi import BackgroundTasks
+from app.routers.websocket_rt import notifier
 
 router = APIRouter()
 
@@ -79,7 +81,7 @@ def get_trip(trip_id: str, current_user: User = Depends(get_current_user), db: S
     return build_trip_response(trip)
 
 @router.put("/{trip_id}/start")
-def start_trip(trip_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def start_trip(trip_id: str, background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -89,10 +91,19 @@ def start_trip(trip_id: str, current_user: User = Depends(get_current_user), db:
     trip.status = "started"
     trip.started_at = datetime.utcnow()
     db.commit()
+    
+    for booking in trip.ride.bookings:
+        if booking.status != "cancelled":
+            background_tasks.add_task(notifier.send_personal_message, str(booking.passenger_id), {
+                "type": "TRIP_STARTED",
+                "title": "Trip Started!",
+                "message": f"Your driver {current_user.name} has started the trip."
+            })
+            
     return {"status": trip.status}
 
 @router.put("/{trip_id}/complete")
-def complete_trip(trip_id: str, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def complete_trip(trip_id: str, background_tasks: BackgroundTasks, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
@@ -113,6 +124,15 @@ def complete_trip(trip_id: str, current_user: User = Depends(get_current_user), 
     trip.ride.status = "completed"
     
     db.commit()
+    
+    for booking in trip.ride.bookings:
+        if booking.status == "completed":
+            background_tasks.add_task(notifier.send_personal_message, str(booking.passenger_id), {
+                "type": "TRIP_COMPLETED",
+                "title": "Trip Completed!",
+                "message": f"Your trip with {current_user.name} has ended. Please check payment status."
+            })
+            
     return {"status": trip.status}
 
 @router.put("/{trip_id}/location")
