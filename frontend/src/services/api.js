@@ -5,6 +5,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  headers: {
+    'Bypass-Tunnel-Reminder': 'true', // Bypasses localtunnel warning page
+    'ngrok-skip-browser-warning': 'true' // Bypasses ngrok warning page
+  }
 });
 
 // Add a request interceptor to automatically attach the JWT token
@@ -107,6 +111,13 @@ const api = {
     }
   },
 
+  bookings: {
+    create: async (data) => {
+      const response = await axiosInstance.post('/bookings/', data);
+      return { data: { booking: response.data } };
+    }
+  },
+
   wallet: {
     balance: async () => {
       const response = await axiosInstance.get('/wallet/');
@@ -114,6 +125,10 @@ const api = {
     },
     recharge: async (amount) => {
       const response = await axiosInstance.post('/wallet/recharge', { amount });
+      return { data: response.data };
+    },
+    pay: async (data) => {
+      const response = await axiosInstance.post('/wallet/pay', data);
       return { data: response.data };
     },
     transactions: async () => {

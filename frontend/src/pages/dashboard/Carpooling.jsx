@@ -19,7 +19,8 @@ import {
   DialogContent,
   DialogActions,
   Chip,
-  Autocomplete
+  Autocomplete,
+  Avatar
 } from '@mui/material';
 import {
   Search,
@@ -217,11 +218,9 @@ const Carpooling = () => {
   const bookRide = async (ride) => {
     setLoading(true);
     try {
-      // Simulate booking
-      setTimeout(() => {
-        setLoading(false);
-        navigate('/my-trips');
-      }, 1000);
+      await mockApi.bookings.create({ ride_id: ride.id, seats_booked: seats });
+      setLoading(false);
+      navigate('/my-trips');
     } catch (err) {
       setLoading(false);
       console.error(err);

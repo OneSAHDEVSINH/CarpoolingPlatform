@@ -101,24 +101,19 @@ const Wallet = () => {
 
     setProcessing(true);
     try {
-      // Simulate wallet payout
-      setTimeout(() => {
-        setBalance(prev => prev - amountToPay);
-        setTransactions([
-          {
-            id: Date.now().toString(),
-            type: 'debit',
-            amount: amountToPay,
-            description: `Ride Payment - Trip ID #${tripId.slice(0, 4)}`,
-            created_at: new Date().toISOString()
-          },
-          ...transactions
-        ]);
-        setToast({ open: true, msg: 'Trip payment completed!', severity: 'success' });
-        setProcessing(false);
-        // Clear params and redirect to history
-        navigate('/ride-history');
-      }, 1200);
+      const { data } = await mockApi.wallet.pay({ booking_id: tripId, amount: amountToPay });
+      setBalance(data.balance);
+      setTransactions([{
+        id: Date.now().toString(),
+        type: 'debit',
+        amount: amountToPay,
+        description: `Ride Payment - Trip ID #${tripId.slice(0, 4)}`,
+        created_at: new Date().toISOString()
+      }, ...transactions]);
+      
+      setToast({ open: true, msg: 'Trip payment completed!', severity: 'success' });
+      setProcessing(false);
+      navigate('/ride-history');
     } catch (err) {
       setToast({ open: true, msg: 'Payment failed', severity: 'error' });
       setProcessing(false);

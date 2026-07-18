@@ -33,7 +33,7 @@ const RideHistory = () => {
   const fetchHistory = async () => {
     try {
       const { data } = await mockApi.history.getHistory();
-      setHistoryList(data);
+      setHistoryList(data.rides || []);
     } catch (err) {
       console.error(err);
     }
@@ -136,7 +136,7 @@ const RideHistory = () => {
 
                     <Grid item xs={5} sx={{ textAlign: 'right' }}>
                       <Typography variant="h6" fontWeight={800} color="primary">
-                        ₹{trip.total_fare}
+                        ₹{trip.total_fare || trip.ride?.fare_per_seat || 150}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         Paid via Wallet

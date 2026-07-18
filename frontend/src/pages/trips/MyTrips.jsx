@@ -87,18 +87,39 @@ const MyTrips = () => {
   // Set up mock route polyline for the trip
   useEffect(() => {
     if (selectedTrip && selectedTrip.pickup && selectedTrip.destination) {
-      // Create a simulated polyline from Pune Koregaon Park to Hinjewadi
       const pickup = selectedTrip.pickup;
       const destination = selectedTrip.destination;
-      const steps = 30;
-      const line = Array.from({ length: steps + 1 }, (_, i) => [
-        pickup.lat + (destination.lat - pickup.lat) * (i / steps),
-        pickup.lng + (destination.lng - pickup.lng) * (i / steps),
-      ]);
-      setRoutePolyline(line);
-      setCarPosition({ lat: pickup.lat, lng: pickup.lng });
-      setProgressIndex(0);
-      setTrackingActive(selectedTrip.status === 'started' || selectedTrip.status === 'in_progress');
+      
+      // Attempt to calculate real route using OSRM if route_polyline is not provided by backend
+      const fetchRoute = async () => {
+        try {
+          if (selectedTrip.route_polyline && selectedTrip.route_polyline.length > 0) {
+            setRoutePolyline(selectedTrip.route_polyline);
+            setCarPosition({ lat: pickup.lat, lng: pickup.lng });
+            setProgressIndex(0);
+          } else {
+            const { data } = await mockApi.route.calculate(pickup, destination);
+            if (data && data.polyline) {
+              setRoutePolyline(data.polyline);
+              setCarPosition({ lat: pickup.lat, lng: pickup.lng });
+              setProgressIndex(0);
+            }
+          }
+        } catch (e) {
+          // Fallback to straight line if OSRM fails
+          const steps = 30;
+          const line = Array.from({ length: steps + 1 }, (_, i) => [
+            pickup.lat + (destination.lat - pickup.lat) * (i / steps),
+            pickup.lng + (destination.lng - pickup.lng) * (i / steps),
+          ]);
+          setRoutePolyline(line);
+          setCarPosition({ lat: pickup.lat, lng: pickup.lng });
+          setProgressIndex(0);
+        }
+        setTrackingActive(selectedTrip.status === 'started' || selectedTrip.status === 'in_progress');
+      };
+      
+      fetchRoute();
     }
   }, [selectedTrip]);
 
@@ -159,20 +180,24 @@ const MyTrips = () => {
     }, 2000);
   };
 
-  const handleStartTrip = () => {
+  const handleStartTrip = async () => {
     if (!selectedTrip) return;
-    const updated = { ...selectedTrip, status: 'started' };
-    setSelectedTrip(updated);
-    setTrips(trips.map(t => t.id === selectedTrip.id ? updated : t));
-    setTrackingActive(true);
+    try {
+      const { data } = await mockApi.trips.start(selectedTrip.id);
+      setSelectedTrip(data.trip);
+      setTrips(trips.map(t => t.id === selectedTrip.id ? data.trip : t));
+      setTrackingActive(true);
+    } catch(err) { console.error(err); }
   };
 
-  const handleCompleteTrip = () => {
+  const handleCompleteTrip = async () => {
     if (!selectedTrip) return;
-    const updated = { ...selectedTrip, status: 'completed' };
-    setSelectedTrip(updated);
-    setTrips(trips.map(t => t.id === selectedTrip.id ? updated : t));
-    setTrackingActive(false);
+    try {
+      const { data } = await mockApi.trips.complete(selectedTrip.id);
+      setSelectedTrip(data.trip);
+      setTrips(trips.map(t => t.id === selectedTrip.id ? data.trip : t));
+      setTrackingActive(false);
+    } catch(err) { console.error(err); }
   };
 
   const getStatusColor = (status) => {
@@ -295,7 +320,7 @@ const MyTrips = () => {
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2" color="text.secondary">Total Fare</Typography>
-                  <Typography variant="body2" fontWeight={700} color="primary">₹{selectedTrip.total_fare}</Typography>
+                  <Typography variant="body2" fontWeight={700} color="primary">₹{selectedTrip.total_fare || selectedTrip.ride?.fare_per_seat || 150}</Typography>
                 </Box>
               </Box>
 
@@ -309,7 +334,7 @@ const MyTrips = () => {
                     fullWidth
                     sx={{ py: 1.2, borderRadius: 2 }}
                   >
-                    Start Trip (Demo Mode)
+                    Start Trip
                   </Button>
                 )}
 
@@ -322,7 +347,7 @@ const MyTrips = () => {
                     fullWidth
                     sx={{ py: 1.2, borderRadius: 2 }}
                   >
-                    Complete Trip (Demo Mode)
+                    Complete Trip
                   </Button>
                 )}
 
@@ -331,11 +356,11 @@ const MyTrips = () => {
                     variant="contained"
                     color="primary"
                     startIcon={<Payment />}
-                    onClick={() => navigate(`/wallet?trip=${selectedTrip.id}&amount=${selectedTrip.total_fare}`)}
+                    onClick={() => navigate(`/wallet?trip=${selectedTrip.id}&amount=${selectedTrip.total_fare || selectedTrip.ride?.fare_per_seat || 150}`)}
                     fullWidth
                     sx={{ py: 1.2, borderRadius: 2 }}
                   >
-                    Process Payment (₹{selectedTrip.total_fare})
+                    Process Payment (₹{selectedTrip.total_fare || selectedTrip.ride?.fare_per_seat || 150})
                   </Button>
                 )}
               </Box>
