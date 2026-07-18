@@ -31,7 +31,7 @@ import {
   CheckCircle,
   AccountCircle
 } from '@mui/icons-material';
-import { mockApi } from '../../services/mockApi.jsx';
+import mockApi from '../../services/api';
 
 const Wallet = () => {
   const [searchParams] = useSearchParams();

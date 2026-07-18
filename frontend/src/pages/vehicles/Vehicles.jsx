@@ -29,7 +29,7 @@ import {
   CheckCircle,
   HelpOutline
 } from '@mui/icons-material';
-import { mockApi } from '../../services/mockApi.jsx';
+import mockApi from '../../services/api';
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState([]);

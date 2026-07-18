@@ -24,7 +24,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { keyframes } from '@emotion/react';
 import AuthLayout from '../../components/layout/AuthLayout.jsx';
 import { useAuth } from '../../contexts/AuthContext.jsx';
-import { mockApi } from '../../services/mockApi.jsx';
+import mockApi from '../../services/api';
 
 /* Slide-up entrance animation */
 const slideUp = keyframes`

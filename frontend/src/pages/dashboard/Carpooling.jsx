@@ -35,7 +35,7 @@ import {
   Navigation
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { mockApi } from '../../services/mockApi.jsx';
+import mockApi from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import MapView from '../../components/maps/MapView.jsx';
 

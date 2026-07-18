@@ -24,7 +24,7 @@ import {
   AttachMoney,
   Person
 } from '@mui/icons-material';
-import { mockApi } from '../../services/mockApi.jsx';
+import mockApi from '../../services/api';
 
 const RideHistory = () => {
   const [historyList, setHistoryList] = useState([]);

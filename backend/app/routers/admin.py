@@ -29,6 +29,7 @@ def get_employees(current_admin: User = Depends(get_current_admin), db: Session 
 
 @router.put("/employees/{user_id}/status")
 def update_employee_status(user_id: str, data: StatusUpdate, current_admin: User = Depends(get_current_admin), db: Session = Depends(get_db)):
+    
     user = db.query(User).filter(User.id == user_id, User.org_id == current_admin.org_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
