@@ -184,8 +184,10 @@ const MyTrips = () => {
     if (!selectedTrip) return;
     try {
       const { data } = await mockApi.trips.start(selectedTrip.id);
-      setSelectedTrip(data.trip);
-      setTrips(trips.map(t => t.id === selectedTrip.id ? data.trip : t));
+      const newStatus = data.trip?.status || 'started';
+      const updatedTrip = { ...selectedTrip, status: newStatus };
+      setSelectedTrip(updatedTrip);
+      setTrips(trips.map(t => t.id === selectedTrip.id ? updatedTrip : t));
       setTrackingActive(true);
     } catch(err) { console.error(err); }
   };
@@ -194,8 +196,10 @@ const MyTrips = () => {
     if (!selectedTrip) return;
     try {
       const { data } = await mockApi.trips.complete(selectedTrip.id);
-      setSelectedTrip(data.trip);
-      setTrips(trips.map(t => t.id === selectedTrip.id ? data.trip : t));
+      const newStatus = data.trip?.status || 'completed';
+      const updatedTrip = { ...selectedTrip, status: newStatus };
+      setSelectedTrip(updatedTrip);
+      setTrips(trips.map(t => t.id === selectedTrip.id ? updatedTrip : t));
       setTrackingActive(false);
     } catch(err) { console.error(err); }
   };
