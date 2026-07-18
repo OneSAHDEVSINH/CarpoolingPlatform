@@ -17,7 +17,7 @@ router = APIRouter()
 @router.post("/")
 def book_ride(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     ride_id = data.get("ride_id")
-    seats = data.get("seats", 1)
+    seats = data.get("seats_booked", data.get("seats", 1))
     
     ride = db.query(Ride).filter(Ride.id == ride_id).first()
     if not ride:

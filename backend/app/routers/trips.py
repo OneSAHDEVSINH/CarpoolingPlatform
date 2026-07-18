@@ -99,6 +99,10 @@ def complete_trip(trip_id: str, current_user: User = Depends(get_current_user), 
     if str(trip.ride.driver_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Only driver can complete trip")
         
+    active_bookings = [b for b in trip.ride.bookings if b.status != 'cancelled']
+    if len(active_bookings) > 0 and trip.status != 'started':
+        raise HTTPException(status_code=400, detail="Trip with passengers must be started before it can be completed")
+        
     trip.status = "payment_pending"
     trip.completed_at = datetime.utcnow()
     

@@ -14,7 +14,8 @@ import {
   MenuItem,
   List,
   ListItem,
-  ListItemText
+  ListItemText,
+  CircularProgress
 } from '@mui/material';
 import {
   History,
@@ -25,10 +26,14 @@ import {
   Person
 } from '@mui/icons-material';
 import mockApi from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext.jsx';
 
 const RideHistory = () => {
+  const { user } = useAuth();
   const [historyList, setHistoryList] = useState([]);
   const [roleFilter, setRoleFilter] = useState('all');
+
+  const [isLoading, setIsLoading] = useState(true);
 
   const fetchHistory = async () => {
     try {
@@ -36,6 +41,8 @@ const RideHistory = () => {
       setHistoryList(data.rides || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -45,10 +52,19 @@ const RideHistory = () => {
 
   const filteredHistory = historyList.filter((trip) => {
     if (roleFilter === 'all') return true;
-    if (roleFilter === 'driver') return trip.driver.id === '2'; // Simulated driver comparison
-    if (roleFilter === 'passenger') return trip.driver.id !== '2';
+    const isDriver = trip.driver?.id === user?.id || trip.driver?.name === user?.name;
+    if (roleFilter === 'driver') return isDriver;
+    if (roleFilter === 'passenger') return !isDriver;
     return true;
   });
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -74,7 +90,13 @@ const RideHistory = () => {
       </Box>
 
       <Grid container spacing={3}>
-        {filteredHistory.map((trip) => (
+        {filteredHistory.map((trip) => {
+          const isDriver = trip.driver?.id === user?.id || trip.driver?.name === user?.name;
+          const driverEarnings = (trip.passengers?.reduce((sum, p) => sum + p.seats_booked, 0) || 0) * (trip.fare_per_seat || 150);
+          const myPassengerRecord = trip.passengers?.find(p => p.id === user?.id || p.name === user?.name);
+          const displayFare = isDriver ? driverEarnings : (myPassengerRecord ? myPassengerRecord.seats_booked * (trip.fare_per_seat || 150) : (trip.fare_per_seat || 150));
+          
+          return (
           <Grid item xs={12} key={trip.id}>
             <Card
               sx={{
@@ -135,11 +157,11 @@ const RideHistory = () => {
                     </Grid>
 
                     <Grid item xs={5} sx={{ textAlign: 'right' }}>
-                      <Typography variant="h6" fontWeight={800} color="primary">
-                        ₹{trip.total_fare || trip.ride?.fare_per_seat || 150}
+                      <Typography variant="h6" fontWeight={800} color={isDriver ? "success.main" : "primary"}>
+                        ₹{displayFare}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Paid via Wallet
+                        {isDriver ? 'Total Earnings' : 'Paid via Wallet'}
                       </Typography>
                     </Grid>
                   </Grid>
@@ -147,7 +169,8 @@ const RideHistory = () => {
               </Grid>
             </Card>
           </Grid>
-        ))}
+          );
+        })}
 
         {filteredHistory.length === 0 && (
           <Grid item xs={12}>

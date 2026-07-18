@@ -15,6 +15,7 @@ import MyTrips from './pages/trips/MyTrips.jsx';
 import Vehicles from './pages/vehicles/Vehicles.jsx';
 import RideHistory from './pages/history/RideHistory.jsx';
 import Wallet from './pages/wallet/Wallet.jsx';
+import Reports from './pages/reports/Reports.jsx';
 import Settings from './pages/settings/Settings.jsx';
 import AdminPanel from './pages/admin/AdminPanel.jsx';
 import DevPanel from './pages/admin/DevPanel.jsx';
@@ -55,6 +56,7 @@ const App = () => {
           <Route path="/vehicles" element={<Vehicles />} />
           <Route path="/ride-history" element={<RideHistory />} />
           <Route path="/wallet" element={<Wallet />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/dev-panel" element={<DevPanel />} />

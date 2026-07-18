@@ -18,9 +18,10 @@ import {
   TextField,
   Paper,
   Chip,
-  Snackbar,
   Avatar,
-  Alert
+  Snackbar,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import {
   AccountBalanceWallet,
@@ -47,6 +48,8 @@ const Wallet = () => {
   const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' });
   const [processing, setProcessing] = useState(false);
 
+  const [isLoading, setIsLoading] = useState(true);
+
   const fetchWalletDetails = async () => {
     try {
       const balanceRes = await mockApi.wallet.balance();
@@ -57,6 +60,8 @@ const Wallet = () => {
       console.error('Wallet fetch error:', err);
       setBalance(0);
       setTransactions([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -101,15 +106,7 @@ const Wallet = () => {
 
     setProcessing(true);
     try {
-      const { data } = await mockApi.wallet.pay({ booking_id: tripId, amount: amountToPay });
-      setBalance(data.balance);
-      setTransactions([{
-        id: Date.now().toString(),
-        type: 'debit',
-        amount: amountToPay,
-        description: `Ride Payment - Trip ID #${tripId.slice(0, 4)}`,
-        created_at: new Date().toISOString()
-      }, ...transactions]);
+      await mockApi.wallet.pay({ booking_id: tripId, amount: amountToPay });
       
       setToast({ open: true, msg: 'Trip payment completed!', severity: 'success' });
       setProcessing(false);
@@ -120,6 +117,14 @@ const Wallet = () => {
       console.error(err);
     }
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ flexGrow: 1 }}>

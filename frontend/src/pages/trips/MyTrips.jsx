@@ -21,7 +21,8 @@ import {
   LinearProgress,
   Dialog,
   DialogContent,
-  DialogTitle
+  DialogTitle,
+  CircularProgress
 } from '@mui/material';
 import {
   Send,
@@ -46,14 +47,13 @@ const MyTrips = () => {
   const [tabValue, setTabValue] = useState(0); // 0: Upcoming/Active, 1: Completed
   const [trips, setTrips] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Chat simulator states
-  const [chatMessages, setChatMessages] = useState([
-    { sender: 'Rahul Mehta', text: 'Hey Priya, I have started from my home. I will reach in 10 mins.', time: '8:15 AM' },
-    { sender: 'Priya Sharma', text: 'Sure Rahul, I am waiting at the main gate.', time: '8:17 AM' }
-  ]);
+  // Chat state
+  const [chatMessages, setChatMessages] = useState([]);
   const [inputMsg, setInputMsg] = useState('');
   const chatEndRef = useRef(null);
+  const ws = useRef(null);
 
   // Live tracking simulator states
   const [carPosition, setCarPosition] = useState(null);
@@ -77,12 +77,63 @@ const MyTrips = () => {
       console.error('Trips fetch error:', err);
       setTrips([]);
       setSelectedTrip(null);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchTrips();
   }, []);
+
+  // Fetch chat and connect WebSocket when trip selected
+  useEffect(() => {
+    if (!selectedTrip) return;
+
+    const loadChatHistory = async () => {
+      try {
+        const { data } = await mockApi.trips.getChat(selectedTrip.id);
+        const formatted = data.map(m => ({
+          id: m.id,
+          sender: m.sender_name || 'User',
+          text: m.message,
+          time: new Date(m.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }));
+        setChatMessages(formatted);
+      } catch (err) {
+        console.error('Failed to load chat history', err);
+      }
+    };
+    
+    loadChatHistory();
+
+    const wsUrl = `ws://localhost:8000/ws/trip/${selectedTrip.id}`;
+    ws.current = new WebSocket(wsUrl);
+
+    ws.current.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        const newMsg = {
+          id: msg.id || Date.now().toString(),
+          sender: msg.sender_name || 'User',
+          text: msg.message,
+          time: new Date(msg.sent_at || msg.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setChatMessages(prev => {
+          if (prev.find(m => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
+      } catch (err) {
+        console.error('WebSocket message parsing error', err);
+      }
+    };
+
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, [selectedTrip?.id]);
 
   // Set up mock route polyline for the trip
   useEffect(() => {
@@ -156,28 +207,33 @@ const MyTrips = () => {
     }
   }, [chatMessages]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!inputMsg.trim()) return;
-    const newMsg = {
-      sender: user?.name || 'Priya Sharma',
-      text: inputMsg,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-    setChatMessages([...chatMessages, newMsg]);
+    if (!inputMsg.trim() || !selectedTrip) return;
+    
+    const text = inputMsg;
     setInputMsg('');
-
-    // Simulate auto reply in 2 seconds
-    setTimeout(() => {
-      setChatMessages((prev) => [
-        ...prev,
-        {
-          sender: selectedTrip?.driver?.name || 'Rahul Mehta',
-          text: 'Sounds good! On my way.',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }
-      ]);
-    }, 2000);
+    
+    try {
+      const { data } = await mockApi.trips.sendChat(selectedTrip.id, text);
+      const newMsg = {
+        id: data.id,
+        sender: data.sender_name,
+        text: data.message,
+        time: new Date(data.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      
+      setChatMessages(prev => {
+        if (prev.find(m => m.id === newMsg.id)) return prev;
+        return [...prev, newMsg];
+      });
+      
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error('Failed to send message', err);
+    }
   };
 
   const handleStartTrip = async () => {
@@ -215,8 +271,22 @@ const MyTrips = () => {
   };
 
   // Filter trips based on tab
-  const activeTrips = trips.filter(t => t.status !== 'completed');
-  const completedTrips = trips.filter(t => t.status === 'completed');
+  const activeTrips = trips.filter(t => !['completed', 'payment_pending', 'payment_completed', 'cancelled'].includes(t.status));
+  const pendingTrips = trips.filter(t => t.status === 'payment_pending');
+  const completedTrips = trips.filter(t => ['completed', 'payment_completed'].includes(t.status));
+
+  const isDriver = selectedTrip?.driver?.id === user?.id || selectedTrip?.driver?.name === user?.name;
+  const driverEarnings = (selectedTrip?.passengers?.reduce((sum, p) => sum + p.seats_booked, 0) || 0) * (selectedTrip?.fare_per_seat || 150);
+  const myPassengerRecord = selectedTrip?.passengers?.find(p => p.id === user?.id || p.name === user?.name);
+  const displayFare = isDriver ? driverEarnings : (myPassengerRecord ? myPassengerRecord.seats_booked * (selectedTrip.fare_per_seat || 150) : (selectedTrip?.fare_per_seat || 150));
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -236,11 +306,12 @@ const MyTrips = () => {
               indicatorColor="primary"
             >
               <Tab label={`Active (${activeTrips.length})`} />
+              <Tab label={`Pending (${pendingTrips.length})`} />
               <Tab label={`Completed (${completedTrips.length})`} />
             </Tabs>
 
             <List sx={{ mt: 2, maxHeight: 350, overflowY: 'auto' }}>
-              {(tabValue === 0 ? activeTrips : completedTrips).map((trip) => (
+              {(tabValue === 0 ? activeTrips : tabValue === 1 ? pendingTrips : completedTrips).map((trip) => (
                 <ListItem
                   key={trip.id}
                   disablePadding
@@ -282,7 +353,7 @@ const MyTrips = () => {
                   </ListItemButton>
                 </ListItem>
               ))}
-              {(tabValue === 0 ? activeTrips : completedTrips).length === 0 && (
+              {(tabValue === 0 ? activeTrips : tabValue === 1 ? pendingTrips : completedTrips).length === 0 && (
                 <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
                   No trips found in this category.
                 </Typography>
@@ -323,14 +394,14 @@ const MyTrips = () => {
                   <Typography variant="body2" fontWeight={600}>{selectedTrip.vehicle.registration_number}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="text.secondary">Total Fare</Typography>
-                  <Typography variant="body2" fontWeight={700} color="primary">₹{selectedTrip.total_fare || selectedTrip.ride?.fare_per_seat || 150}</Typography>
+                  <Typography variant="body2" color="text.secondary">{isDriver ? 'Total Earnings' : 'Total Fare'}</Typography>
+                  <Typography variant="body2" fontWeight={700} color={isDriver ? "success.main" : "primary"}>₹{displayFare}</Typography>
                 </Box>
               </Box>
 
               {/* Action Buttons */}
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {selectedTrip.status === 'booked' && (
+                {['booked', 'scheduled'].includes(selectedTrip.status) && (selectedTrip.driver?.id === user?.id || selectedTrip.driver?.name === user?.name) && (selectedTrip.passengers?.length > 0) && (
                   <Button
                     variant="contained"
                     startIcon={<Navigation />}
@@ -342,7 +413,7 @@ const MyTrips = () => {
                   </Button>
                 )}
 
-                {selectedTrip.status === 'started' && (
+                {((selectedTrip.status === 'started' && selectedTrip.passengers?.length > 0) || (['booked', 'scheduled'].includes(selectedTrip.status) && (!selectedTrip.passengers || selectedTrip.passengers.length === 0))) && (selectedTrip.driver?.id === user?.id || selectedTrip.driver?.name === user?.name) && (
                   <Button
                     variant="contained"
                     color="success"
@@ -355,16 +426,16 @@ const MyTrips = () => {
                   </Button>
                 )}
 
-                {selectedTrip.status === 'completed' && (
+                {['completed', 'payment_pending'].includes(selectedTrip.status) && (selectedTrip.driver?.id !== user?.id && selectedTrip.driver?.name !== user?.name) && (
                   <Button
                     variant="contained"
                     color="primary"
                     startIcon={<Payment />}
-                    onClick={() => navigate(`/wallet?trip=${selectedTrip.id}&amount=${selectedTrip.total_fare || selectedTrip.ride?.fare_per_seat || 150}`)}
+                    onClick={() => navigate(`/wallet?trip=${selectedTrip.id}&amount=${displayFare}`)}
                     fullWidth
                     sx={{ py: 1.2, borderRadius: 2 }}
                   >
-                    Process Payment (₹{selectedTrip.total_fare || selectedTrip.ride?.fare_per_seat || 150})
+                    Process Payment (₹{displayFare})
                   </Button>
                 )}
               </Box>

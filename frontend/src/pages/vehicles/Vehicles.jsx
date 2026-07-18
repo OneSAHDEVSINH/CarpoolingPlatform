@@ -18,6 +18,7 @@ import {
   Alert,
   Paper,
   Avatar, 
+  CircularProgress
 } from '@mui/material';
 import {
   Add,
@@ -44,6 +45,8 @@ const Vehicles = () => {
 
   const [toast, setToast] = useState({ open: false, msg: '', severity: 'success' });
 
+  const [isLoading, setIsLoading] = useState(true);
+
   const fetchVehicles = async () => {
     try {
       const res = await mockApi.vehicles.list();
@@ -51,6 +54,8 @@ const Vehicles = () => {
     } catch (err) {
       console.error('Vehicles fetch error:', err);
       setVehicles([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -96,7 +101,8 @@ const Vehicles = () => {
       setOpenDialog(false);
       setToast({ open: true, msg: 'Vehicle registered successfully!', severity: 'success' });
     } catch (err) {
-      setToast({ open: true, msg: 'Failed to register vehicle', severity: 'error' });
+      const errMsg = err.response?.data?.detail || 'Failed to register vehicle';
+      setToast({ open: true, msg: errMsg, severity: 'error' });
       console.error(err);
     }
   };
@@ -111,6 +117,14 @@ const Vehicles = () => {
       console.error(err);
     }
   };
+
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ flexGrow: 1 }}>
@@ -247,9 +261,13 @@ const Vehicles = () => {
                 fullWidth
                 required
                 label="Registration Number"
-                placeholder="e.g. MH-12-AB-1234"
+                placeholder="e.g. GJ01AB1234"
                 value={newVehicle.registrationNumber}
-                onChange={handleInputChange('registrationNumber')}
+                onChange={(e) => setNewVehicle({ ...newVehicle, registrationNumber: e.target.value.toUpperCase() })}
+                inputProps={{ 
+                  pattern: "^[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}$",
+                  title: "Must be a valid Indian Registration Number (e.g., GJ01AB1234)"
+                }}
               />
 
               <Grid container spacing={2}>

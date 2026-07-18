@@ -26,11 +26,24 @@ def get_vehicles(current_user: User = Depends(get_current_user), db: Session = D
 
 @router.post("/", response_model=VehicleResponse)
 def create_vehicle(data: VehicleCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    import re
+    
+    reg_number = data.registration_number.strip().upper()
+    
+    # Regex check for Indian Number Plate
+    pattern = r"^[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}$"
+    if not re.match(pattern, reg_number):
+        raise HTTPException(status_code=400, detail="Invalid Indian Registration Number pattern (e.g., GJ01AB1234)")
+        
+    # Uniqueness check across database
+    existing = db.query(Vehicle).filter(Vehicle.registration_number == reg_number).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Vehicle with this registration number already exists in the database")
     vehicle = Vehicle(
         id=uuid.uuid4(),
         owner_id=current_user.id,
         model=data.model,
-        registration_number=data.registration_number,
+        registration_number=reg_number,
         seating_capacity=data.seating_capacity,
         fuel_type=data.fuel_type,
         fuel_efficiency=data.fuel_efficiency

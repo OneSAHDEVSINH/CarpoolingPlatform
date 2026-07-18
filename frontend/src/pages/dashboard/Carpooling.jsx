@@ -47,6 +47,7 @@ const Carpooling = () => {
 
   const [activeTab, setActiveTab] = useState('find'); // 'find' | 'offer'
   const [loading, setLoading] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [vehicles, setVehicles] = useState([]);
   
   // Form values
@@ -129,6 +130,8 @@ const Carpooling = () => {
         }
       } catch (err) {
         console.error('Failed to load vehicles', err);
+      } finally {
+        setIsInitialLoading(false);
       }
     };
     fetchVehicles();
@@ -226,6 +229,14 @@ const Carpooling = () => {
       console.error(err);
     }
   };
+
+  if (isInitialLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', p: { xs: 1, md: 3 } }}>
@@ -409,7 +420,10 @@ const Carpooling = () => {
                       ),
                     }}
                   >
-                    {[1, 2, 3, 4, 5, 6].map((num) => (
+                    {Array.from(
+                      { length: activeTab === 'offer' ? (vehicles.find(v => String(v.id) === String(selectedVehicle))?.seating_capacity || 4) : 6 },
+                      (_, i) => i + 1
+                    ).map((num) => (
                       <MenuItem key={num} value={num}>
                         Seat {num}
                       </MenuItem>

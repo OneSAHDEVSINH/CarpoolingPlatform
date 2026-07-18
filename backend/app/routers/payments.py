@@ -17,7 +17,17 @@ router = APIRouter()
 
 @router.post("/", response_model=PaymentResponse)
 def create_payment(data: PaymentCreate, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    booking = db.query(Booking).filter(Booking.id == data.booking_id).first()
+    # Frontend passes trip_id as data.booking_id
+    trip = db.query(Trip).filter(Trip.id == data.booking_id).first()
+    if trip:
+        booking = db.query(Booking).filter(
+            Booking.ride_id == trip.ride_id,
+            Booking.passenger_id == current_user.id
+        ).first()
+    else:
+        booking = db.query(Booking).filter(Booking.id == data.booking_id).first()
+        trip = db.query(Trip).filter(Trip.ride_id == booking.ride_id).first() if booking else None
+        
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
         

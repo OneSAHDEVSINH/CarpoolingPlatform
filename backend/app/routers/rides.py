@@ -92,7 +92,7 @@ def publish_ride(data: RideCreate, current_user: User = Depends(get_current_user
     trip = Trip(
         id=uuid.uuid4(),
         ride_id=ride.id,
-        status="booked"
+        status="scheduled"
     )
     db.add(trip)
     

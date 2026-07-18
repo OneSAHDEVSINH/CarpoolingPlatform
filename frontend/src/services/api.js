@@ -108,6 +108,14 @@ const api = {
     complete: async (id) => {
       const response = await axiosInstance.put(`/trips/${id}/complete`);
       return { data: { trip: mapLocationData(response.data) } };
+    },
+    getChat: async (id) => {
+      const response = await axiosInstance.get(`/trips/${id}/chat`);
+      return { data: response.data };
+    },
+    sendChat: async (id, message) => {
+      const response = await axiosInstance.post(`/trips/${id}/chat`, { message });
+      return { data: response.data };
     }
   },
 
@@ -128,7 +136,7 @@ const api = {
       return { data: response.data };
     },
     pay: async (data) => {
-      const response = await axiosInstance.post('/wallet/pay', data);
+      const response = await axiosInstance.post('/payments/', { ...data, method: 'wallet' });
       return { data: response.data };
     },
     transactions: async () => {

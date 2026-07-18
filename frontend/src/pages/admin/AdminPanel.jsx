@@ -61,6 +61,13 @@ const AdminPanel = () => {
 
   // Vehicles Tab states
   const [orgVehicles, setOrgVehicles] = useState([]);
+  const [openAddVehicle, setOpenAddVehicle] = useState(false);
+  const [newVehicle, setNewVehicle] = useState({
+    registrationNumber: '',
+    model: '',
+    seatingCapacity: 4,
+    owner_id: ''
+  });
 
   // Settings Tab states
   const [settings, setSettings] = useState({
@@ -128,6 +135,19 @@ const AdminPanel = () => {
     }
   };
 
+  const handleAddVehicle = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await mockApi.admin.addOrgVehicle(newVehicle);
+      setOrgVehicles([...orgVehicles, { ...data, approvalStatus: 'approved' }]);
+      setOpenAddVehicle(false);
+      setToast({ open: true, msg: 'Organization vehicle registered successfully!', severity: 'success' });
+    } catch (err) {
+      const errMsg = err.response?.data?.detail || 'Failed to register vehicle';
+      setToast({ open: true, msg: errMsg, severity: 'error' });
+    }
+  };
+
   // Settings actions
   const handleSaveSettings = async (e) => {
     e.preventDefault();
@@ -150,6 +170,28 @@ const AdminPanel = () => {
       <Typography variant="h5" fontWeight={800} color="primary" sx={{ mb: 4, display: 'flex', alignItems: 'center', gap: 1 }}>
         <Shield /> Company Administration Control
       </Typography>
+
+      {/* KPI Header Section */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={4}>
+          <Card sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={700}>Total Employees</Typography>
+            <Typography variant="h4" fontWeight={800} color="primary.main">{employees.length}</Typography>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={700}>Registered Vehicles</Typography>
+            <Typography variant="h4" fontWeight={800} color="secondary.main">{orgVehicles.length}</Typography>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+            <Typography variant="body2" color="text.secondary" fontWeight={700}>Rides This Month</Typography>
+            <Typography variant="h4" fontWeight={800} color="success.main">163</Typography>
+          </Card>
+        </Grid>
+      </Grid>
 
       <Card sx={{ borderRadius: 3.5, border: '1px solid', borderColor: 'divider', boxShadow: '0 4px 16px rgba(0,0,0,0.03)' }}>
         <Tabs
@@ -215,14 +257,14 @@ const AdminPanel = () => {
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
                           <Chip
-                            label={emp.accessStatus.toUpperCase()}
-                            color={emp.accessStatus === 'active' ? 'success' : 'error'}
+                            label={(emp.accessStatus || 'active').toUpperCase()}
+                            color={emp.accessStatus === 'revoked' ? 'error' : 'success'}
                             size="small"
                             sx={{ fontSize: '0.65rem', fontWeight: 700 }}
                           />
                           <Switch
-                            checked={emp.accessStatus === 'active'}
-                            onChange={() => handleToggleAccess(emp.id, emp.accessStatus)}
+                            checked={emp.accessStatus !== 'revoked'}
+                            onChange={() => handleToggleAccess(emp.id, emp.accessStatus || 'active')}
                             color="success"
                             size="small"
                           />
@@ -239,6 +281,16 @@ const AdminPanel = () => {
         {/* Tab 2: Registered Vehicles */}
         {activeTab === 1 && (
           <Box sx={{ p: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 3 }}>
+              <Button
+                variant="outlined"
+                startIcon={<Add />}
+                onClick={() => setOpenAddVehicle(true)}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+              >
+                Add Vehicle
+              </Button>
+            </Box>
             <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
               <Table>
                 <TableHead>
@@ -455,6 +507,65 @@ const AdminPanel = () => {
             </Button>
             <Button type="submit" variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>
               Add & Grant Access
+            </Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      {/* Add Vehicle Dialog */}
+      <Dialog open={openAddVehicle} onClose={() => setOpenAddVehicle(false)} PaperProps={{ sx: { borderRadius: 4 } }}>
+        <form onSubmit={handleAddVehicle}>
+          <DialogTitle sx={{ fontWeight: 700 }}>Register Corporate Vehicle</DialogTitle>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1.5 }}>
+            <TextField
+              fullWidth
+              required
+              label="Registration Number"
+              placeholder="e.g. GJ01AB1234"
+              value={newVehicle.registrationNumber}
+              onChange={(e) => setNewVehicle({ ...newVehicle, registrationNumber: e.target.value.toUpperCase() })}
+              inputProps={{ 
+                pattern: "^[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}$",
+                title: "Must be a valid Indian Registration Number (e.g., GJ01AB1234)"
+              }}
+            />
+            <TextField
+              fullWidth
+              required
+              label="Vehicle Model"
+              placeholder="e.g. Swift Dzire"
+              value={newVehicle.model}
+              onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })}
+            />
+            <TextField
+              fullWidth
+              required
+              type="number"
+              label="Seating Capacity"
+              value={newVehicle.seatingCapacity}
+              onChange={(e) => setNewVehicle({ ...newVehicle, seatingCapacity: parseInt(e.target.value) || 4 })}
+            />
+            <TextField
+              fullWidth
+              required
+              select
+              label="Assigned Driver"
+              value={newVehicle.owner_id}
+              onChange={(e) => setNewVehicle({ ...newVehicle, owner_id: e.target.value })}
+            >
+              {employees.map((emp) => (
+                <MenuItem key={emp.id} value={emp.id}>
+                  {emp.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </DialogContent>
+          <DialogActions sx={{ p: 3, pt: 0 }}>
+            <Button onClick={() => setOpenAddVehicle(false)} sx={{ textTransform: 'none', borderRadius: 2 }}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>
+              Register Vehicle
             </Button>
           </DialogActions>
         </form>
