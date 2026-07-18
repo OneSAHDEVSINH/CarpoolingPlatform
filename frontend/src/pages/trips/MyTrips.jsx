@@ -36,7 +36,7 @@ import {
   Close
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { mockApi, getWsBaseUrl } from '../../services/api';
+import mockApi, { getWsBaseUrl } from '../../services/api.js';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import MapView from '../../components/maps/MapView.jsx';
 
