@@ -60,7 +60,6 @@ const Topbar = () => {
     { text: 'My Vehicle', path: '/vehicles' },
     { text: 'Ride History', path: '/ride-history' },
     { text: 'Wallet', path: '/wallet' },
-    { text: 'Setting', path: '/settings' },
   ];
 
   // Admin tools — strictly show only to users with role 'admin'
