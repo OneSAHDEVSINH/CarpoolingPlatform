@@ -130,10 +130,10 @@ const api = {
   },
 
   history: {
-    list: async () => {
+    getHistory: async () => {
       // Mock history list basically returned completed trips
       const response = await axiosInstance.get('/trips/my');
-      return { data: { rides: response.data } };
+      return { data: { rides: response.data.map(mapLocationData) } };
     }
   },
 
@@ -169,6 +169,47 @@ const api = {
     saveOrgSettings: async (data) => {
       const response = await axiosInstance.put('/admin/org/settings', data);
       return { data: response.data };
+    }
+  },
+
+  // --- External Free APIs for Hackathon ---
+
+  location: {
+    search: async (query) => {
+      // Use standard axios to avoid sending our JWT to Nominatim
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5`);
+      return { data: response.data };
+    },
+    reverseGeocode: async (lat, lng) => {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      return { data: response.data };
+    }
+  },
+
+  route: {
+    calculate: async (pickup, destination) => {
+      // OSRM expects coordinates in lng,lat format
+      const url = `https://router.project-osrm.org/route/v1/driving/${pickup.lng},${pickup.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson`;
+      const response = await axios.get(url);
+      
+      if (response.data.code !== 'Ok' || !response.data.routes.length) {
+        throw new Error('Route calculation failed');
+      }
+
+      const route = response.data.routes[0];
+      
+      // OSRM returns polyline as array of [lng, lat]. Leaflet needs [lat, lng]
+      const polyline = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+      
+      return {
+        data: {
+          distance_km: parseFloat((route.distance / 1000).toFixed(1)),
+          duration_min: Math.round(route.duration / 60),
+          polyline: polyline,
+          pickup_address: pickup.address,
+          destination_address: destination.address
+        }
+      };
     }
   }
 };

@@ -18,7 +18,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip
+  Chip,
+  Autocomplete
 } from '@mui/material';
 import {
   Search,
@@ -48,8 +49,63 @@ const Carpooling = () => {
   const [vehicles, setVehicles] = useState([]);
   
   // Form values
-  const [startLoc, setStartLoc] = useState('');
-  const [destLoc, setDestLoc] = useState('');
+  const [startLoc, setStartLoc] = useState(null);
+  const [destLoc, setDestLoc] = useState(null);
+
+  // Autocomplete state
+  const [startInput, setStartInput] = useState('');
+  const [destInput, setDestInput] = useState('');
+  const [startOptions, setStartOptions] = useState([]);
+  const [destOptions, setDestOptions] = useState([]);
+  const [locating, setLocating] = useState(false);
+
+  // Debounce search effect for Start Location
+  useEffect(() => {
+    if (startInput.length < 3) return setStartOptions([]);
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await mockApi.location.search(startInput);
+        setStartOptions(data.map(item => ({
+          address: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon)
+        })));
+      } catch (err) {}
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [startInput]);
+
+  // Debounce search effect for Dest Location
+  useEffect(() => {
+    if (destInput.length < 3) return setDestOptions([]);
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await mockApi.location.search(destInput);
+        setDestOptions(data.map(item => ({
+          address: item.display_name,
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon)
+        })));
+      } catch (err) {}
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [destInput]);
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        const { latitude, longitude } = pos.coords;
+        const { data } = await mockApi.location.reverseGeocode(latitude, longitude);
+        const address = data.display_name || 'My Location';
+        const locObj = { lat: latitude, lng: longitude, address };
+        setStartLoc(locObj);
+        setStartInput(address);
+      } catch(e) {}
+      setLocating(false);
+    }, () => setLocating(false));
+  };
   const [dateTime, setDateTime] = useState('2026-07-18T17:12');
   const [seats, setSeats] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
@@ -78,9 +134,8 @@ const Carpooling = () => {
   }, []);
 
   const handleSwapLocations = () => {
-    const temp = startLoc;
-    setStartLoc(destLoc);
-    setDestLoc(temp);
+    const tempLoc = startLoc; setStartLoc(destLoc); setDestLoc(tempLoc);
+    const tempInp = startInput; setStartInput(destInput); setDestInput(tempInp);
   };
 
   const handleFindRideSubmit = async (e) => {
@@ -89,14 +144,19 @@ const Carpooling = () => {
     
     setLoading(true);
     try {
-      // Simulate route calculation
-      const pickup = { lat: 18.5362, lng: 73.8973 };
-      const drop = { lat: 18.5912, lng: 73.7388 };
+      // Route calculation using OSRM
+      const pickup = startLoc;
+      const drop = destLoc;
       const { data } = await mockApi.route.calculate(pickup, drop);
       setCalculatedRoute(data);
       
-      // Simulate searching rides matching route
-      const ridesRes = await mockApi.rides.search();
+      // Search rides matching route
+      const ridesRes = await mockApi.rides.search({
+        pickup: startLoc,
+        destination: destLoc,
+        date: dateTime.split('T')[0],
+        seats: seats
+      });
       setSearchResults(ridesRes.data.rides);
       
       setLoading(false);
@@ -113,8 +173,8 @@ const Carpooling = () => {
 
     setLoading(true);
     try {
-      const pickup = { lat: 18.5362, lng: 73.8973 };
-      const drop = { lat: 18.5912, lng: 73.7388 };
+      const pickup = startLoc;
+      const drop = destLoc;
       const { data } = await mockApi.route.calculate(pickup, drop);
       setCalculatedRoute(data);
       
@@ -134,10 +194,10 @@ const Carpooling = () => {
       setLoading(true);
       try {
         await mockApi.rides.create({
-          pickup: { lat: 18.5362, lng: 73.8973, address: startLoc },
-          destination: { lat: 18.5912, lng: 73.7388, address: destLoc },
-          date: dateTime.split('T')[0],
-          time: dateTime.split('T')[1],
+          pickup: startLoc,
+          destination: destLoc,
+          travel_date: dateTime.split('T')[0],
+          travel_time: dateTime.split('T')[1],
           vehicle_id: selectedVehicle,
           available_seats: seats,
           fare_per_seat: farePerSeat,
@@ -223,22 +283,41 @@ const Carpooling = () => {
               <Grid container spacing={3} alignItems="center">
                 {/* Start Location */}
                 <Grid item xs={11}>
-                  <Typography variant="body2" fontWeight={700} color="primary" sx={{ mb: 1 }}>
-                    Start Location
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    required
-                    placeholder="Enter Your location"
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="body2" fontWeight={700} color="primary">
+                      Start Location
+                    </Typography>
+                    <Button size="small" onClick={handleLocateMe} disabled={locating} startIcon={locating ? <CircularProgress size={14}/> : <Navigation />}>
+                      Locate Me
+                    </Button>
+                  </Box>
+                  <Autocomplete
+                    freeSolo
+                    options={startOptions}
+                    getOptionLabel={(option) => typeof option === 'string' ? option : option.address}
                     value={startLoc}
-                    onChange={(e) => setStartLoc(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LocationOn color="primary" />
-                        </InputAdornment>
-                      ),
+                    onChange={(e, val) => {
+                      setStartLoc(val);
+                      if(val?.address) setStartInput(val.address);
                     }}
+                    inputValue={startInput}
+                    onInputChange={(e, val) => setStartInput(val)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        fullWidth
+                        required={!startLoc}
+                        placeholder="Search pick-up location..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <LocationOn color="primary" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
                   />
                 </Grid>
 
@@ -263,19 +342,33 @@ const Carpooling = () => {
                   <Typography variant="body2" fontWeight={700} color="primary" sx={{ mb: 1 }}>
                     Destination Location
                   </Typography>
-                  <TextField
-                    fullWidth
-                    required
-                    placeholder="Enter Drop location"
+                  <Autocomplete
+                    freeSolo
+                    options={destOptions}
+                    getOptionLabel={(option) => typeof option === 'string' ? option : option.address}
                     value={destLoc}
-                    onChange={(e) => setDestLoc(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <LocationOn color="error" />
-                        </InputAdornment>
-                      ),
+                    onChange={(e, val) => {
+                      setDestLoc(val);
+                      if(val?.address) setDestInput(val.address);
                     }}
+                    inputValue={destInput}
+                    onInputChange={(e, val) => setDestInput(val)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        fullWidth
+                        required={!destLoc}
+                        placeholder="Search drop-off location..."
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <LocationOn color="error" />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
                   />
                 </Grid>
 
@@ -544,12 +637,12 @@ const Carpooling = () => {
               {/* Render Leaflet Map */}
               <Box sx={{ height: 350, width: '100%', borderRadius: 3, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
                 <MapView
-                  center={[18.55, 73.80]}
+                  center={[startLoc?.lat || 18.55, startLoc?.lng || 73.80]}
                   zoom={12}
                   polyline={calculatedRoute.polyline}
                   markers={[
-                    { lat: 18.5362, lng: 73.8973, label: 'Pickup: ' + startLoc },
-                    { lat: 18.5912, lng: 73.7388, label: 'Dropoff: ' + destLoc }
+                    { lat: startLoc?.lat, lng: startLoc?.lng, label: 'Pickup' },
+                    { lat: destLoc?.lat, lng: destLoc?.lng, label: 'Dropoff' }
                   ]}
                 />
               </Box>
