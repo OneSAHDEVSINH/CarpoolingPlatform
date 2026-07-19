@@ -1,7 +1,23 @@
 import axios from 'axios';
 
-// Centralized configuration: 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+// Auto-detect environment: if running on a dev tunnel (e.g. port 5173), route to port 8000 tunnel
+const getDynamicApiUrl = () => {
+  const host = window.location.hostname;
+  if (host.includes('devtunnels.ms')) {
+    // VS Code Dev Tunnels format: {prefix}-{port}.{region}.devtunnels.ms
+    const newHost = host.replace('-5173', '-8000');
+    return `https://${newHost}/api`;
+  }
+  if (host.includes('loca.lt') || host.includes('ngrok')) {
+    // If using localtunnel/ngrok for frontend, this assumes backend is on the same host (which it usually isn't)
+    // But since the user is using devtunnels specifically:
+    return import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
+  }
+  // Fallback to local
+  return 'http://127.0.0.1:8000/api';
+};
+
+const API_BASE_URL = getDynamicApiUrl();
 
 export const getWsBaseUrl = () => {
   try {
