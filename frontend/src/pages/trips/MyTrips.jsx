@@ -271,9 +271,12 @@ const MyTrips = () => {
   };
 
   // Filter trips based on tab
-  const activeTrips = trips.filter(t => !['completed', 'payment_pending', 'payment_completed', 'cancelled'].includes(t.status));
-  const pendingTrips = trips.filter(t => t.status === 'payment_pending');
-  const completedTrips = trips.filter(t => ['completed', 'payment_completed'].includes(t.status));
+  const todayStr = new Date().toISOString().split('T')[0];
+  const allActiveTrips = trips.filter(t => !['completed', 'payment_pending', 'payment_completed', 'cancelled'].includes(t.status));
+  
+  const todayTrips = allActiveTrips.filter(t => (t.travel_date || t.date) <= todayStr);
+  const upcomingTrips = allActiveTrips.filter(t => (t.travel_date || t.date) > todayStr);
+  const historyTrips = trips.filter(t => ['completed', 'payment_pending', 'payment_completed', 'cancelled'].includes(t.status));
 
   const isDriver = selectedTrip?.driver?.id === user?.id || selectedTrip?.driver?.name === user?.name;
   const driverEarnings = (selectedTrip?.passengers?.reduce((sum, p) => sum + p.seats_booked, 0) || 0) * (selectedTrip?.fare_per_seat || 150);
@@ -305,13 +308,13 @@ const MyTrips = () => {
               textColor="primary"
               indicatorColor="primary"
             >
-              <Tab label={`Active (${activeTrips.length})`} />
-              <Tab label={`Pending (${pendingTrips.length})`} />
-              <Tab label={`Completed (${completedTrips.length})`} />
+              <Tab label={`Today (${todayTrips.length})`} />
+              <Tab label={`Upcoming (${upcomingTrips.length})`} />
+              <Tab label={`History (${historyTrips.length})`} />
             </Tabs>
 
             <List sx={{ mt: 2, maxHeight: 350, overflowY: 'auto' }}>
-              {(tabValue === 0 ? activeTrips : tabValue === 1 ? pendingTrips : completedTrips).map((trip) => (
+              {(tabValue === 0 ? todayTrips : tabValue === 1 ? upcomingTrips : historyTrips).map((trip) => (
                 <ListItem
                   key={trip.id}
                   disablePadding
@@ -329,7 +332,7 @@ const MyTrips = () => {
                       primary={
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                           <Typography variant="subtitle2" fontWeight={700}>
-                            {trip.date} • {trip.time}
+                            {trip.travel_date || trip.date} • {trip.travel_time || trip.time}
                           </Typography>
                           <Chip
                             label={trip.status.toUpperCase()}
@@ -353,7 +356,7 @@ const MyTrips = () => {
                   </ListItemButton>
                 </ListItem>
               ))}
-              {(tabValue === 0 ? activeTrips : tabValue === 1 ? pendingTrips : completedTrips).length === 0 && (
+              {(tabValue === 0 ? todayTrips : tabValue === 1 ? upcomingTrips : historyTrips).length === 0 && (
                 <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
                   No trips found in this category.
                 </Typography>

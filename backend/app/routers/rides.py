@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.models.ride import Ride
@@ -66,43 +66,58 @@ def publish_ride(data: RideCreate, current_user: User = Depends(get_current_user
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date/time format")
         
-    ride = Ride(
-        id=uuid.uuid4(),
-        driver_id=current_user.id,
-        vehicle_id=data.vehicle_id, # Requires cast if using UUID directly in input, assumes valid
-        pickup_lat=data.pickup.lat,
-        pickup_lng=data.pickup.lng,
-        pickup_address=data.pickup.address,
-        destination_lat=data.destination.lat,
-        destination_lng=data.destination.lng,
-        destination_address=data.destination.address,
-        route_polyline=data.route_polyline,
-        distance_km=data.distance_km,
-        estimated_duration_min=data.estimated_duration_min,
-        travel_date=travel_date,
-        travel_time=travel_time,
-        total_seats=data.available_seats,
-        available_seats=data.available_seats,
-        fare_per_seat=data.fare_per_seat,
-        is_recurring=data.is_recurring,
-        recurrence_pattern=data.recurrence_pattern
-    )
-    db.add(ride)
+    dates_to_create = [travel_date]
+    if data.is_recurring and data.recurrence_pattern:
+        try:
+            pattern_days = [int(day) for day in data.recurrence_pattern.split(',')]
+            # Add matching dates for the next 6 days (1 week limit as requested)
+            for i in range(1, 7):
+                next_date = travel_date + timedelta(days=i)
+                if next_date.weekday() in pattern_days:
+                    dates_to_create.append(next_date)
+        except Exception:
+            pass # fallback to single date if pattern invalid
+
+    first_ride = None
     
-    trip = Trip(
-        id=uuid.uuid4(),
-        ride_id=ride.id,
-        status="scheduled"
-    )
-    db.add(trip)
+    for d in dates_to_create:
+        ride = Ride(
+            id=uuid.uuid4(),
+            driver_id=current_user.id,
+            vehicle_id=data.vehicle_id, # Requires cast if using UUID directly in input, assumes valid
+            pickup_lat=data.pickup.lat,
+            pickup_lng=data.pickup.lng,
+            pickup_address=data.pickup.address,
+            destination_lat=data.destination.lat,
+            destination_lng=data.destination.lng,
+            destination_address=data.destination.address,
+            route_polyline=data.route_polyline,
+            distance_km=data.distance_km,
+            estimated_duration_min=data.estimated_duration_min,
+            travel_date=d,
+            travel_time=travel_time,
+            total_seats=data.available_seats,
+            available_seats=data.available_seats,
+            fare_per_seat=data.fare_per_seat,
+            is_recurring=data.is_recurring,
+            recurrence_pattern=data.recurrence_pattern
+        )
+        db.add(ride)
+        
+        trip = Trip(
+            id=uuid.uuid4(),
+            ride_id=ride.id,
+            status="scheduled"
+        )
+        db.add(trip)
+        
+        if first_ride is None:
+            first_ride = ride
     
     db.commit()
-    db.refresh(ride)
+    db.refresh(first_ride)
     
-    # We could fetch vehicle directly here instead of using relationships for simplicity if needed
-    driver = current_user
-    vehicle = ride.vehicle
-    return build_ride_response(ride, driver, vehicle)
+    return build_ride_response(first_ride, current_user, first_ride.vehicle)
 
 @router.get("/my", response_model=List[RideResponse])
 def list_my_rides(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):

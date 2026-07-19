@@ -20,7 +20,9 @@ import {
   DialogActions,
   Chip,
   Autocomplete,
-  Avatar
+  Avatar,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   Search,
@@ -108,9 +110,16 @@ const Carpooling = () => {
       setLocating(false);
     }, () => setLocating(false));
   };
-  const [dateTime, setDateTime] = useState('2026-07-18T17:12');
+
+  const formatDateTimeLocal = (date) => {
+    const d = new Date(date);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  };
+  const [dateTime, setDateTime] = useState(formatDateTimeLocal(new Date()));
   const [seats, setSeats] = useState(1);
   const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState(['0', '1', '2', '3', '4']); // default Mon-Fri (Python weekday mapping 0-4)
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [farePerSeat, setFarePerSeat] = useState(45);
 
@@ -207,7 +216,8 @@ const Carpooling = () => {
           fare_per_seat: farePerSeat,
           route_polyline: calculatedRoute.polyline,
           distance_km: calculatedRoute.distance_km,
-          is_recurring: isRecurring
+          is_recurring: isRecurring,
+          recurrence_pattern: isRecurring ? recurrencePattern.join(',') : null
         });
         setLoading(false);
         navigate('/my-trips');
@@ -392,6 +402,9 @@ const Carpooling = () => {
                     type="datetime-local"
                     value={dateTime}
                     onChange={(e) => setDateTime(e.target.value)}
+                    inputProps={{
+                      min: formatDateTimeLocal(new Date())
+                    }}
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -503,6 +516,30 @@ const Carpooling = () => {
                       color="primary"
                     />
                   </Paper>
+                  
+                  {isRecurring && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+                      <Typography variant="body2" fontWeight={600} mb={1}>
+                        Select days for the next 7 days:
+                      </Typography>
+                      <ToggleButtonGroup
+                        value={recurrencePattern}
+                        onChange={(e, newFormats) => setRecurrencePattern(newFormats)}
+                        aria-label="recurring days"
+                        size="small"
+                        color="primary"
+                        sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, '& .MuiToggleButtonGroup-grouped': { border: 0, borderRadius: '8px !important', bgcolor: 'background.paper', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', '&.Mui-selected': { bgcolor: 'primary.main', color: 'white' } } }}
+                      >
+                        <ToggleButton value="0" aria-label="monday">Mo</ToggleButton>
+                        <ToggleButton value="1" aria-label="tuesday">Tu</ToggleButton>
+                        <ToggleButton value="2" aria-label="wednesday">We</ToggleButton>
+                        <ToggleButton value="3" aria-label="thursday">Th</ToggleButton>
+                        <ToggleButton value="4" aria-label="friday">Fr</ToggleButton>
+                        <ToggleButton value="5" aria-label="saturday">Sa</ToggleButton>
+                        <ToggleButton value="6" aria-label="sunday">Su</ToggleButton>
+                      </ToggleButtonGroup>
+                    </Box>
+                  )}
                 </Grid>
 
                 {/* Action button */}
@@ -681,3 +718,4 @@ const Carpooling = () => {
 };
 
 export default Carpooling;
+

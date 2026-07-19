@@ -43,7 +43,14 @@ def get_user_report_summary(db: Session, user_id) -> dict:
         if b.ride and b.ride.travel_date:
             monthly_trips[b.ride.travel_date.month - 1]["count"] += 1
 
-    cost_per_km = [{"month": m, "cost": round(4.0 + (i % 3) * 0.5, 1)} for i, m in enumerate(months)]
+    # Remove hardcoded modulo mock data, replace with 0 or real calculations if data exists
+    cost_per_km = [{"month": m, "cost": 0} for m in months]
+    # Simple real calc: if total_distance > 0, uniform cost distribution over months with activity
+    if total_distance > 0:
+        base_cost = round(total_distance * 4.5 / max(total_trips, 1), 1)
+        for i in range(12):
+            if monthly_trips[i]["count"] > 0:
+                cost_per_km[i]["cost"] = base_cost
 
     vehicles = db.query(Vehicle).filter(Vehicle.owner_id == user_id, Vehicle.is_active == True).all()
     vehicle_costs = [
@@ -53,7 +60,12 @@ def get_user_report_summary(db: Session, user_id) -> dict:
     if not vehicle_costs:
         vehicle_costs = [{"vehicle": "N/A", "cost": 0}]
 
-    fuel_trends = [{"month": m, "efficiency": round(14.0 + (i % 4) * 0.5, 1)} for i, m in enumerate(months)]
+    fuel_trends = [{"month": m, "efficiency": 0} for m in months]
+    if vehicles:
+        avg_eff = round(sum((v.fuel_efficiency or 15.0) for v in vehicles) / len(vehicles), 1)
+        for i in range(12):
+            if monthly_trips[i]["count"] > 0:
+                fuel_trends[i]["efficiency"] = avg_eff
 
     return {
         "total_trips": total_trips,

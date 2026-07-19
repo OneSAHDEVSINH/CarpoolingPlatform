@@ -179,8 +179,7 @@ const api = {
 
   history: {
     getHistory: async () => {
-      // Mock history list basically returned completed trips
-      const response = await axiosInstance.get('/trips/my');
+      const response = await axiosInstance.get('/reports/history');
       return { data: { rides: response.data.map(mapLocationData) } };
     }
   },

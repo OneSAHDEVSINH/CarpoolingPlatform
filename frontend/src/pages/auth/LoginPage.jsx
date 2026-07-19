@@ -234,12 +234,12 @@ const LoginPage = () => {
             </Typography>
           </Box>
 
-          {/* Demo credentials hint */}
+          {/* Demo credentials hint
           <Box sx={{ mt: 2, p: 1.5, bgcolor: 'primary.light', borderRadius: 2, opacity: 0.8 }}>
             <Typography variant="caption" color="primary.dark" display="block" textAlign="center">
               Demo: priya@techcorp.com / any password (6+ chars)
             </Typography>
-          </Box>
+          </Box> */}
         </Card>
       </Box>
 
