@@ -9,12 +9,10 @@ const getDynamicApiUrl = () => {
     return `https://${newHost}/api`;
   }
   if (host.includes('loca.lt') || host.includes('ngrok')) {
-    // If using localtunnel/ngrok for frontend, this assumes backend is on the same host (which it usually isn't)
-    // But since the user is using devtunnels specifically:
     return import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
   }
-  // Fallback to local
-  return 'http://127.0.0.1:8000/api';
+  // Fallback to local env variable so teammates can configure their own connection
+  return import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 };
 
 const API_BASE_URL = getDynamicApiUrl();
@@ -31,6 +29,7 @@ export const getWsBaseUrl = () => {
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     'Bypass-Tunnel-Reminder': 'true', // Bypasses localtunnel warning page
     'ngrok-skip-browser-warning': 'true' // Bypasses ngrok warning page
